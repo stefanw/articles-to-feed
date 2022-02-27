@@ -1,0 +1,53 @@
+plugins:
+  # Create articles table in articles.db on startup
+  datasette-init:
+    articles:
+      tables:
+        articles:
+          columns:
+            url: text
+            title: text
+            content: text
+            created: text
+          pk: url
+  datasette-auth-passwords:
+    user_password_hash:
+      $env: "PASSWORD_HASH"
+  datasette-auth-tokens:
+    tokens: 
+      - token:
+          $env: "BOT_TOKEN"
+        actor:
+          bot_id: "voebbot"
+    param: "_auth_token"
+allow:
+  bot_id: "voebbot"
+  id: "user"
+databases:
+  articles:
+    queries:
+      feed:
+        title: Article Feed
+        sql: |-
+          select
+            'datasette-articles:' || url as atom_id,
+            title as atom_title,
+            created as atom_updated,
+            url as atom_link,
+            content as atom_content_html
+          from
+            articles
+          order by
+            created desc
+          limit
+            50
+      # /articles/add_article query
+      add_article:
+        sql: |-
+          INSERT INTO articles (
+            url, title, content, created
+          ) VALUES (
+            :url, :title, :content, :_now_datetime_utc
+          ) ON CONFLICT (url) DO UPDATE SET title=:title, content=:content, created=:_now_datetime_utc;
+        write: true
+        on_success_redirect: "/-/close-window"
